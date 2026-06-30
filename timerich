@@ -1,14 +1,15 @@
-```html
 <!DOCTYPE html>
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="description" content="투자 시점을 미루면 얼마나 큰 기회를 놓치는지 복리 시뮬레이션으로 확인해보세요. TimeRich 복리 계산기">
     <title>TimeRich - 복리 시뮬레이터</title>
+    
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Lucide Icons -->
-    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Lucide Icons (버전 고정) -->
+    <script src="https://unpkg.com/lucide@0.441.0"></script>
     
     <style>
         @keyframes shine {
@@ -27,7 +28,7 @@
             display: none;
         }
         
-        /* 커스텀 슬라이더 스타일 */
+        /* 커스텀 슬라이더 */
         input[type=range] {
             -webkit-appearance: none;
             width: 100%;
@@ -57,7 +58,6 @@
             border: none;
         }
         
-        /* 페이드인 애니메이션 클래스 */
         .fade-in {
             opacity: 0;
             transform: translateY(20px);
@@ -228,7 +228,9 @@
         <!-- 하단 고정 버튼 -->
         <div class="fixed bottom-0 left-0 w-full bg-gradient-to-t from-[#0B0F19] via-[#0B0F19] to-transparent pt-12 pb-6 px-5 z-50 pointer-events-none flex justify-center">
             <div class="w-full max-w-xl pointer-events-auto">
-                <a href="https://booking.allbaro.workers.dev/" target="_blank" rel="noopener noreferrer" class="w-full relative overflow-hidden group bg-emerald-500 hover:bg-emerald-400 text-slate-900 font-bold text-lg py-4 rounded-2xl shadow-[0_0_20px_rgba(16,185,129,0.4)] transition-all duration-300 transform hover:-translate-y-1 active:translate-y-0 flex items-center justify-center gap-2" style="text-decoration: none;">
+                <a href="https://booking.allbaro.workers.dev/" target="_blank" rel="noopener noreferrer" 
+                   class="w-full relative overflow-hidden group bg-emerald-500 hover:bg-emerald-400 text-slate-900 font-bold text-lg py-4 rounded-2xl shadow-[0_0_20px_rgba(16,185,129,0.4)] transition-all duration-300 transform hover:-translate-y-1 active:translate-y-0 flex items-center justify-center gap-2" 
+                   style="text-decoration: none;">
                     <span class="relative z-10">더 늦기 전에 상담 시작하기</span>
                     <i data-lucide="chevron-right" class="w-5 h-5 relative z-10 group-hover:translate-x-1 transition-transform"></i>
                     <div class="absolute top-0 -left-full w-full h-full bg-gradient-to-r from-transparent via-white/40 to-transparent skew-x-12 group-hover:animate-shine"></div>
@@ -238,17 +240,15 @@
         
     </div>
 
-    <!-- 순수 JavaScript 로직 -->
     <script>
-        // 1. 초기 렌더링 세팅
         lucide.createIcons();
         
-        // 페이드인 애니메이션 실행
+        // 페이드인 애니메이션
         setTimeout(() => {
             document.querySelectorAll('.fade-in').forEach(el => el.classList.add('visible'));
         }, 50);
 
-        // 2. DOM 요소 매핑
+        // DOM 요소
         const inputs = {
             monthly: document.getElementById('input-monthly'),
             rate: document.getElementById('input-rate'),
@@ -261,7 +261,6 @@
             age: document.getElementById('val-age'),
             retire: document.getElementById('val-retire')
         };
-        
         const outs = {
             dailyLoss: document.getElementById('out-daily-loss'),
             ageText: document.getElementById('out-current-age-text'),
@@ -274,123 +273,6 @@
             late5Loss: document.getElementById('out-late5-loss'),
             late10ShortFv: document.getElementById('out-late10-short-fv')
         };
-
         const bars = {
             nowFv: document.getElementById('bar-now-fv'),
-            late5Fv: document.getElementById('bar-late5-fv'),
-            late5Loss: document.getElementById('bar-late5-loss'),
-            late10Fv: document.getElementById('bar-late10-fv'),
-            late10Loss: document.getElementById('bar-late10-loss')
-        };
-
-        // 3. 포맷팅 및 계산 함수
-        function formatMoney(amountInWon) {
-            if (amountInWon <= 0) return '0원';
-            const uk = Math.floor(amountInWon / 100000000);
-            const man = Math.floor((amountInWon % 100000000) / 10000);
-            if (uk > 0) return man > 0 ? `${uk}억 ${man.toLocaleString()}만 원` : `${uk}억 원`;
-            return `${man.toLocaleString()}만 원`;
-        }
-
-        function formatShortMoney(amountInWon) {
-            if (amountInWon <= 0) return '0원';
-            const uk = Math.floor(amountInWon / 100000000);
-            if (uk > 0) return `${(amountInWon / 100000000).toFixed(1)}억`;
-            return `${Math.floor(amountInWon / 10000).toLocaleString()}만`;
-        }
-
-        function calculateFV(monthlyAmountMan, rate, years) {
-            if (years <= 0) return 0;
-            const p = monthlyAmountMan * 10000;
-            if (rate === 0) return p * 12 * years;
-            const r = rate / 100 / 12;
-            const n = years * 12;
-            return p * ((Math.pow(1 + r, n) - 1) / r) * (1 + r);
-        }
-
-        // 4. 메인 업데이트 로직
-        function updateUI() {
-            let monthly = parseInt(inputs.monthly.value);
-            let rate = parseInt(inputs.rate.value);
-            let age = parseInt(inputs.age.value);
-            let retire = parseInt(inputs.retire.value);
-
-            // 나이 논리 보정
-            if (age >= retire) {
-                retire = age + 5;
-                inputs.retire.value = retire;
-            }
-
-            // 슬라이더 배경색 칠하기
-            const updateSliderBg = (el) => {
-                const percent = ((el.value - el.min) / (el.max - el.min)) * 100;
-                el.style.background = `linear-gradient(to right, rgba(255,255,255,0.3) ${percent}%, #1e293b ${percent}%)`;
-            }
-            Object.values(inputs).forEach(updateSliderBg);
-
-            // 디스플레이 텍스트 업데이트
-            displays.monthly.innerText = monthly.toLocaleString();
-            displays.rate.innerText = rate;
-            displays.age.innerText = age;
-            displays.retire.innerText = retire;
-
-            outs.ageText.innerText = age;
-            outs.retireText.innerText = retire;
-
-            // 데이터 계산
-            const yearsNow = Math.max(0, retire - age);
-            const years5Late = Math.max(0, retire - (age + 5));
-            const years10Late = Math.max(0, retire - (age + 10));
-
-            const fvNow = calculateFV(monthly, rate, yearsNow);
-            const fv5Late = calculateFV(monthly, rate, years5Late);
-            const fv10Late = calculateFV(monthly, rate, years10Late);
-
-            const principalNow = monthly * 10000 * 12 * yearsNow;
-            const loss5Years = fvNow - fv5Late;
-            const loss10Years = fvNow - fv10Late;
-            const dailyLoss = loss5Years / (5 * 365);
-            const maxVal = Math.max(fvNow, 1);
-
-            // 결과 화면 업데이트
-            outs.dailyLoss.innerText = formatMoney(dailyLoss);
-            
-            const fvNowStr = formatMoney(fvNow);
-            outs.nowFv.innerText = fvNowStr.replace('원', ''); // '원'은 하드코딩 되어있음
-            outs.nowPrincipal.innerText = formatMoney(principalNow);
-            outs.nowInterest.innerText = '+' + formatMoney(fvNow - principalNow);
-
-            outs.nowShortFv.innerText = formatShortMoney(fvNow);
-            outs.late5ShortFv.innerText = formatShortMoney(fv5Late);
-            outs.late10ShortFv.innerText = formatShortMoney(fv10Late);
-            outs.late5Loss.innerText = formatMoney(loss5Years);
-
-            // 바 그래프 너비 업데이트
-            bars.nowFv.style.width = `${(fvNow / maxVal) * 100}%`;
-            bars.late5Fv.style.width = `${(fv5Late / maxVal) * 100}%`;
-            bars.late5Loss.style.width = `${(loss5Years / maxVal) * 100}%`;
-            bars.late10Fv.style.width = `${(fv10Late / maxVal) * 100}%`;
-            bars.late10Loss.style.width = `${(loss10Years / maxVal) * 100}%`;
-        }
-
-        // 5. 이벤트 리스너 등록
-        Object.values(inputs).forEach(input => {
-            input.addEventListener('input', updateUI);
-        });
-
-        document.getElementById('btn-reset').addEventListener('click', () => {
-            inputs.monthly.value = 150;
-            inputs.rate.value = 7;
-            inputs.age.value = 30;
-            inputs.retire.value = 65;
-            updateUI();
-        });
-
-        // 최초 실행
-        updateUI();
-    </script>
-</body>
-</html>
-
-
-```
+            late5Fv
