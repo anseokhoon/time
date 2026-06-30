@@ -275,4 +275,117 @@
         };
         const bars = {
             nowFv: document.getElementById('bar-now-fv'),
-            late5Fv
+            late5Fv: document.getElementById('bar-late5-fv'),
+            late5Loss: document.getElementById('bar-late5-loss'),
+            late10Fv: document.getElementById('bar-late10-fv'),
+            late10Loss: document.getElementById('bar-late10-loss')
+        };
+
+        // 포맷팅 함수
+        function formatMoney(amount) {
+            if (amount <= 0) return '0원';
+            const uk = Math.floor(amount / 100000000);
+            const man = Math.floor((amount % 100000000) / 10000);
+            if (uk > 0) return man > 0 ? `${uk}억 ${man.toLocaleString()}만 원` : `${uk}억 원`;
+            return `${man.toLocaleString()}만 원`;
+        }
+
+        function formatShortMoney(amount) {
+            if (amount <= 0) return '0원';
+            const uk = Math.floor(amount / 100000000);
+            if (uk > 0) return `${(amount / 100000000).toFixed(1)}억`;
+            return `${Math.floor(amount / 10000).toLocaleString()}만`;
+        }
+
+        // 복리 계산 (연금 미래가치 - 선지급 방식)
+        function calculateFV(monthlyMan, rate, years) {
+            if (years <= 0) return 0;
+            const p = monthlyMan * 10000;
+            if (rate === 0) return p * 12 * years;
+            const r = rate / 100 / 12;
+            const n = years * 12;
+            return p * ((Math.pow(1 + r, n) - 1) / r) * (1 + r);
+        }
+
+        // 메인 업데이트 함수
+        function updateUI() {
+            let monthly = parseInt(inputs.monthly.value);
+            let rate = parseInt(inputs.rate.value);
+            let age = parseInt(inputs.age.value);
+            let retire = parseInt(inputs.retire.value);
+
+            // 나이 검증
+            if (age >= retire) {
+                retire = age + 5;
+                inputs.retire.value = retire;
+            }
+
+            // 슬라이더 배경 업데이트
+            Object.values(inputs).forEach(el => {
+                const percent = ((el.value - el.min) / (el.max - el.min)) * 100;
+                el.style.background = `linear-gradient(to right, rgba(255,255,255,0.35) ${percent}%, #1e293b ${percent}%)`;
+            });
+
+            // 디스플레이 업데이트
+            displays.monthly.innerText = monthly.toLocaleString();
+            displays.rate.innerText = rate;
+            displays.age.innerText = age;
+            displays.retire.innerText = retire;
+
+            outs.ageText.innerText = age;
+            outs.retireText.innerText = retire;
+
+            // 계산
+            const yearsNow = Math.max(0, retire - age);
+            const years5Late = Math.max(0, retire - (age + 5));
+            const years10Late = Math.max(0, retire - (age + 10));
+
+            const fvNow = calculateFV(monthly, rate, yearsNow);
+            const fv5Late = calculateFV(monthly, rate, years5Late);
+            const fv10Late = calculateFV(monthly, rate, years10Late);
+
+            const principalNow = monthly * 10000 * 12 * yearsNow;
+            const loss5Years = fvNow - fv5Late;
+            const loss10Years = fvNow - fv10Late;
+            const dailyLoss = loss5Years / (5 * 365);
+            const maxVal = Math.max(fvNow, 1);
+
+            // 출력
+            outs.dailyLoss.innerText = formatMoney(dailyLoss);
+            
+            const fvNowStr = formatMoney(fvNow);
+            outs.nowFv.innerText = fvNowStr.replace(/원$/, '').trim();
+            outs.nowPrincipal.innerText = formatMoney(principalNow);
+            outs.nowInterest.innerText = '+' + formatMoney(fvNow - principalNow);
+
+            outs.nowShortFv.innerText = formatShortMoney(fvNow);
+            outs.late5ShortFv.innerText = formatShortMoney(fv5Late);
+            outs.late10ShortFv.innerText = formatShortMoney(fv10Late);
+            outs.late5Loss.innerText = formatMoney(loss5Years);
+
+            // 바 그래프
+            bars.nowFv.style.width = `${(fvNow / maxVal) * 100}%`;
+            bars.late5Fv.style.width = `${(fv5Late / maxVal) * 100}%`;
+            bars.late5Loss.style.width = `${(loss5Years / maxVal) * 100}%`;
+            bars.late10Fv.style.width = `${(fv10Late / maxVal) * 100}%`;
+            bars.late10Loss.style.width = `${(loss10Years / maxVal) * 100}%`;
+        }
+
+        // 이벤트 연결
+        Object.values(inputs).forEach(input => {
+            input.addEventListener('input', updateUI);
+        });
+
+        document.getElementById('btn-reset').addEventListener('click', () => {
+            inputs.monthly.value = 150;
+            inputs.rate.value = 7;
+            inputs.age.value = 30;
+            inputs.retire.value = 65;
+            updateUI();
+        });
+
+        // 초기 실행
+        updateUI();
+    </script>
+</body>
+</html>
