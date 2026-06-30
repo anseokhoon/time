@@ -7,11 +7,6 @@
     <title>TimeRich - 복리 시뮬레이터</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- React & ReactDOM -->
-    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    <!-- Babel for JSX -->
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
     
@@ -19,341 +14,383 @@
         @keyframes shine {
             100% { left: 100%; }
         }
+        .animate-shine {
+            animation: shine 1s ease-in-out infinite;
+        }
         body {
             background-color: #0B0F19;
             color: #e2e8f0;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
             -webkit-tap-highlight-color: transparent;
         }
-        /* 스크롤바 숨기기 (모바일 앱 느낌) */
         ::-webkit-scrollbar {
             display: none;
         }
+        
+        /* 커스텀 슬라이더 스타일 */
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 8px;
+            border-radius: 4px;
+            background: #1e293b;
+            outline: none;
+            transition: background 0.1s;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #ffffff;
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.6);
+            cursor: pointer;
+        }
+        input[type=range]::-moz-range-thumb {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #ffffff;
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.6);
+            cursor: pointer;
+            border: none;
+        }
+        
+        /* 페이드인 애니메이션 클래스 */
+        .fade-in {
+            opacity: 0;
+            transform: translateY(20px);
+            transition: opacity 0.8s ease-out, transform 0.8s ease-out;
+        }
+        .fade-in.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
     </style>
 </head>
-<body>
-    <div id="root"></div>
+<body class="selection:bg-emerald-500/30 flex justify-center pb-20 min-h-screen">
+    
+    <div class="w-full max-w-xl mx-auto flex flex-col relative">
+        
+        <!-- 상단 헤더 -->
+        <header class="sticky top-0 z-50 bg-[#0B0F19]/80 backdrop-blur-xl border-b border-white/5 px-6 py-4 flex justify-between items-center">
+            <div class="flex items-center gap-2">
+                <div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-400 flex items-center justify-center shadow-lg shadow-emerald-500/20">
+                    <i data-lucide="trending-up" class="w-5 h-5 text-white"></i>
+                </div>
+                <h1 class="text-lg font-bold text-white tracking-tight">TimeRich</h1>
+            </div>
+            <button id="btn-reset" class="text-xs font-semibold px-3 py-1.5 rounded-full bg-white/10 hover:bg-white/20 transition-colors text-white">
+                초기화
+            </button>
+        </header>
 
-    <script type="text/babel">
-        const { useState, useMemo, useEffect } = React;
+        <main class="flex-1 px-5 pt-8 pb-10 space-y-8">
+            
+            <!-- 메인 카피 -->
+            <div class="fade-in" style="transition-delay: 0ms;">
+                <h2 class="text-3xl font-extrabold text-white mb-2 leading-tight">
+                    투자를 5년 미루면 <br/>
+                    <span class="text-transparent bg-clip-text bg-gradient-to-r from-red-400 to-orange-500">
+                        매일 <span id="out-daily-loss">0원</span>
+                    </span>씩<br/>
+                    버리는 것과 같습니다.
+                </h2>
+                <p class="text-slate-400 text-sm mt-3">
+                    현재 나이 <span id="out-current-age-text">30</span>세, <span id="out-retire-age-text">65</span>세 은퇴 기준
+                </p>
+            </div>
 
-        // 아이콘 컴포넌트들 (Lucide Icons 대체)
-        const Icon = ({ name, className }) => {
-            const iconRef = React.useRef(null);
-            useEffect(() => {
-                if (iconRef.current) {
-                    lucide.createIcons({
-                        icons: { [name]: lucide.icons[name] },
-                        nameAttr: 'data-lucide',
-                        attrs: {
-                            class: className,
-                        }
-                    });
-                }
-            }, [name, className]);
-            return <i ref={iconRef} data-lucide={name}></i>;
-        };
-
-        const App = () => {
-            // 상태 관리 (기본값: 월 150만 원, 수익률 7%)
-            const [monthlyInvestment, setMonthlyInvestment] = useState(150);
-            const [annualReturnRate, setAnnualReturnRate] = useState(7);
-            const [currentAge, setCurrentAge] = useState(30);
-            const [retirementAge, setRetirementAge] = useState(65);
-            const [animate, setAnimate] = useState(false);
-
-            useEffect(() => {
-                setAnimate(true);
-            }, []);
-
-            // 금액 포맷팅
-            const formatMoney = (amountInWon) => {
-                if (amountInWon <= 0) return '0원';
-                const uk = Math.floor(amountInWon / 100000000);
-                const man = Math.floor((amountInWon % 100000000) / 10000);
-                
-                if (uk > 0) {
-                    return man > 0 ? `${uk}억 ${man.toLocaleString()}만 원` : `${uk}억 원`;
-                }
-                return `${man.toLocaleString()}만 원`;
-            };
-
-            const formatShortMoney = (amountInWon) => {
-                if (amountInWon <= 0) return '0원';
-                const uk = Math.floor(amountInWon / 100000000);
-                if (uk > 0) return `${(amountInWon / 100000000).toFixed(1)}억`;
-                return `${Math.floor(amountInWon / 10000).toLocaleString()}만`;
-            };
-
-            // 복리 계산
-            const calculateFV = (monthlyAmountMan, rate, years) => {
-                if (years <= 0) return 0;
-                const p = monthlyAmountMan * 10000;
-                if (rate === 0) return p * 12 * years;
-                
-                const r = rate / 100 / 12;
-                const n = years * 12;
-                
-                return p * ((Math.pow(1 + r, n) - 1) / r) * (1 + r);
-            };
-
-            // 데이터 계산
-            const data = useMemo(() => {
-                const yearsNow = Math.max(0, retirementAge - currentAge);
-                const years5Late = Math.max(0, retirementAge - (currentAge + 5));
-                const years10Late = Math.max(0, retirementAge - (currentAge + 10));
-
-                const fvNow = calculateFV(monthlyInvestment, annualReturnRate, yearsNow);
-                const fv5Late = calculateFV(monthlyInvestment, annualReturnRate, years5Late);
-                const fv10Late = calculateFV(monthlyInvestment, annualReturnRate, years10Late);
-
-                const principalNow = monthlyInvestment * 10000 * 12 * yearsNow;
-                const loss5Years = fvNow - fv5Late;
-                const dailyLoss = loss5Years / (5 * 365);
-
-                return {
-                    now: { years: yearsNow, fv: fvNow, principal: principalNow },
-                    late5: { years: years5Late, fv: fv5Late, loss: loss5Years },
-                    late10: { years: years10Late, fv: fv10Late, loss: fvNow - fv10Late },
-                    dailyLoss: dailyLoss,
-                    maxVal: Math.max(fvNow, 1)
-                };
-            }, [monthlyInvestment, annualReturnRate, currentAge, retirementAge]);
-
-            // 커스텀 슬라이더
-            const CustomSlider = ({ label, value, min, max, step, onChange, unit, iconName, colorClass }) => {
-                const percentage = ((value - min) / (max - min)) * 100;
-                
-                return (
-                    <div className="mb-6">
-                        <div className="flex justify-between items-end mb-3">
-                            <div className="flex items-center text-slate-400 text-sm font-medium">
-                                <Icon name={iconName} className="w-4 h-4 mr-1.5" />
-                                {label}
-                            </div>
-                            <div className={`text-xl font-bold ${colorClass}`}>
-                                {value.toLocaleString()}{unit}
-                            </div>
-                        </div>
-                        <div className="relative h-2 bg-slate-800 rounded-full">
-                            <div 
-                                className={`absolute top-0 left-0 h-full rounded-full transition-all duration-300 ease-out`}
-                                style={{ width: `${percentage}%`, backgroundImage: 'linear-gradient(90deg, rgba(255,255,255,0.1), currentColor)' }}
-                            ></div>
-                            <input
-                                type="range"
-                                min={min}
-                                max={max}
-                                step={step}
-                                value={value}
-                                onChange={(e) => onChange(Number(e.target.value))}
-                                className="absolute top-0 left-0 w-full h-full opacity-0 cursor-pointer"
-                            />
-                            <div 
-                                className="absolute top-1/2 -translate-y-1/2 w-4 h-4 bg-white rounded-full shadow-[0_0_10px_rgba(255,255,255,0.5)] pointer-events-none transition-all duration-300 ease-out"
-                                style={{ left: `calc(${percentage}% - 8px)` }}
-                            ></div>
-                        </div>
+            <!-- 메인 결과 카드 -->
+            <div class="relative overflow-hidden rounded-3xl p-6 fade-in bg-gradient-to-br from-slate-800/80 to-slate-900/80 border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.3)] backdrop-blur-md" style="transition-delay: 100ms;">
+                <div class="absolute -top-20 -right-20 w-64 h-64 bg-emerald-500/20 blur-[80px] rounded-full pointer-events-none"></div>
+                <div class="relative z-10">
+                    <div class="flex items-center gap-2 mb-1">
+                        <span class="px-2.5 py-1 rounded-md bg-emerald-500/20 text-emerald-400 text-xs font-bold tracking-wider uppercase">Best Choice</span>
                     </div>
-                );
-            };
-
-            return (
-                <div className="min-h-screen selection:bg-emerald-500/30 flex justify-center pb-20">
-                    <div className="w-full max-w-xl mx-auto flex flex-col relative">
-                        
-                        <header className="sticky top-0 z-50 bg-[#0B0F19]/80 backdrop-blur-xl border-b border-white/5 px-6 py-4 flex justify-between items-center">
-                            <div className="flex items-center gap-2">
-                                <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-400 flex items-center justify-center shadow-lg shadow-emerald-500/20">
-                                    <Icon name="trending-up" className="w-5 h-5 text-white" />
-                                </div>
-                                <h1 className="text-lg font-bold text-white tracking-tight">TimeRich</h1>
-                            </div>
-                            <button 
-                                onClick={() => {
-                                    setMonthlyInvestment(150);
-                                    setAnnualReturnRate(7);
-                                    setCurrentAge(30);
-                                    setRetirementAge(65);
-                                }}
-                                className="text-xs font-semibold px-3 py-1.5 rounded-full bg-white/10 hover:bg-white/20 transition-colors text-white"
-                            >
-                                초기화
-                            </button>
-                        </header>
-
-                        <main className="flex-1 px-5 pt-8 pb-10 space-y-8">
-                            
-                            <div className={`transition-all duration-700 transform ${animate ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'}`}>
-                                <h2 className="text-3xl font-extrabold text-white mb-2 leading-tight">
-                                    투자를 5년 미루면 <br/>
-                                    <span className="text-transparent bg-clip-text bg-gradient-to-r from-red-400 to-orange-500">
-                                        매일 {formatMoney(data.dailyLoss)}
-                                    </span>씩<br/>
-                                    버리는 것과 같습니다.
-                                </h2>
-                                <p className="text-slate-400 text-sm mt-3">
-                                    현재 나이 {currentAge}세, {retirementAge}세 은퇴 기준
-                                </p>
-                            </div>
-
-                            <div className={`relative overflow-hidden rounded-3xl p-6 transition-all duration-1000 delay-100 transform ${animate ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'} bg-gradient-to-br from-slate-800/80 to-slate-900/80 border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.3)] backdrop-blur-md`}>
-                                <div className="absolute -top-20 -right-20 w-64 h-64 bg-emerald-500/20 blur-[80px] rounded-full pointer-events-none"></div>
-                                
-                                <div className="relative z-10">
-                                    <div className="flex items-center gap-2 mb-1">
-                                        <span className="px-2.5 py-1 rounded-md bg-emerald-500/20 text-emerald-400 text-xs font-bold tracking-wider uppercase">
-                                            Best Choice
-                                        </span>
-                                    </div>
-                                    <h3 className="text-slate-300 font-medium mb-6">지금 당장 시작했을 때 은퇴 자산</h3>
-                                    
-                                    <div className="text-4xl md:text-5xl font-black text-white tracking-tight mb-2 flex items-baseline gap-1">
-                                        {formatMoney(data.now.fv).split('원')[0]}
-                                        <span className="text-2xl text-emerald-400">원</span>
-                                    </div>
-                                    
-                                    <div className="flex items-center gap-3 mt-6 pt-5 border-t border-white/10">
-                                        <div className="flex-1">
-                                            <p className="text-xs text-slate-400 mb-1">총 납입 원금</p>
-                                            <p className="text-sm font-semibold text-slate-200">{formatMoney(data.now.principal)}</p>
-                                        </div>
-                                        <div className="w-px h-8 bg-white/10"></div>
-                                        <div className="flex-1">
-                                            <p className="text-xs text-slate-400 mb-1">복리 이자 수익</p>
-                                            <p className="text-sm font-semibold text-emerald-400">+{formatMoney(data.now.fv - data.now.principal)}</p>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className={`space-y-5 transition-all duration-1000 delay-200 transform ${animate ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'}`}>
-                                <h3 className="text-lg font-bold text-white flex items-center">
-                                    <Icon name="alert-triangle" className="w-5 h-5 mr-2 text-orange-400" />
-                                    시작 시기에 따른 자산 격차
-                                </h3>
-
-                                <div className="group relative">
-                                    <div className="flex justify-between text-sm mb-2">
-                                        <span className="font-semibold text-emerald-400">지금 즉시 시작</span>
-                                        <span className="font-bold text-white">{formatShortMoney(data.now.fv)}</span>
-                                    </div>
-                                    <div className="h-3 w-full bg-slate-800 rounded-full overflow-hidden shadow-inner">
-                                        <div 
-                                            className="h-full bg-gradient-to-r from-emerald-600 to-emerald-400 rounded-full transition-all duration-1000 ease-out"
-                                            style={{ width: `${(data.now.fv / data.maxVal) * 100}%` }}
-                                        />
-                                    </div>
-                                </div>
-
-                                <div className="group relative">
-                                    <div className="flex justify-between text-sm mb-2">
-                                        <span className="font-medium text-orange-400">5년 늦게 시작</span>
-                                        <span className="font-bold text-slate-300">{formatShortMoney(data.late5.fv)}</span>
-                                    </div>
-                                    <div className="h-3 w-full bg-slate-800 rounded-full flex overflow-visible shadow-inner relative">
-                                        <div 
-                                            className="h-full bg-gradient-to-r from-orange-600 to-orange-400 rounded-full transition-all duration-1000 ease-out z-10"
-                                            style={{ width: `${(data.late5.fv / data.maxVal) * 100}%` }}
-                                        />
-                                        <div 
-                                            className="absolute top-0 right-0 h-full bg-red-500/20 border border-dashed border-red-500/50 rounded-r-full transition-all duration-1000 ease-out"
-                                            style={{ width: `${(data.late5.loss / data.maxVal) * 100}%` }}
-                                        />
-                                    </div>
-                                    <p className="text-xs text-red-400 text-right mt-1.5 font-medium flex items-center justify-end">
-                                        <Icon name="zap" className="w-3 h-3 mr-0.5" /> -{formatMoney(data.late5.loss)} 증발
-                                    </p>
-                                </div>
-
-                                <div className="group relative">
-                                    <div className="flex justify-between text-sm mb-2">
-                                        <span className="font-medium text-red-400">10년 늦게 시작</span>
-                                        <span className="font-bold text-slate-300">{formatShortMoney(data.late10.fv)}</span>
-                                    </div>
-                                    <div className="h-3 w-full bg-slate-800 rounded-full flex overflow-visible shadow-inner relative">
-                                        <div 
-                                            className="h-full bg-gradient-to-r from-red-700 to-red-500 rounded-full transition-all duration-1000 ease-out z-10"
-                                            style={{ width: `${(data.late10.fv / data.maxVal) * 100}%` }}
-                                        />
-                                        <div 
-                                            className="absolute top-0 right-0 h-full bg-red-500/10 border border-dashed border-red-500/30 rounded-r-full transition-all duration-1000 ease-out"
-                                            style={{ width: `${(data.late10.loss / data.maxVal) * 100}%` }}
-                                        />
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className={`mt-8 bg-[#131B2C] rounded-3xl p-6 border border-white/5 transition-all duration-1000 delay-300 transform ${animate ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'}`}>
-                                <h3 className="text-white font-bold mb-6">시뮬레이션 조건 설정</h3>
-                                
-                                <CustomSlider
-                                    label="월 투자 금액"
-                                    iconName="wallet"
-                                    value={monthlyInvestment}
-                                    min={10} max={1000} step={10} unit="만 원"
-                                    colorClass="text-emerald-400"
-                                    onChange={setMonthlyInvestment}
-                                />
-                                
-                                <CustomSlider
-                                    label="연평균 수익률"
-                                    iconName="trending-up"
-                                    value={annualReturnRate}
-                                    min={1} max={20} step={1} unit="%"
-                                    colorClass="text-blue-400"
-                                    onChange={setAnnualReturnRate}
-                                />
-                                
-                                <CustomSlider
-                                    label="현재 나이"
-                                    iconName="calendar"
-                                    value={currentAge}
-                                    min={20} max={60} step={1} unit="세"
-                                    colorClass="text-purple-400"
-                                    onChange={(val) => {
-                                        setCurrentAge(val);
-                                        if (val >= retirementAge) setRetirementAge(val + 5);
-                                    }}
-                                />
-                                
-                                <CustomSlider
-                                    label="은퇴 목표 나이"
-                                    iconName="clock"
-                                    value={retirementAge}
-                                    min={currentAge + 5} max={90} step={1} unit="세"
-                                    colorClass="text-pink-400"
-                                    onChange={setRetirementAge}
-                                />
-                            </div>
-
-                        </main>
-
-                        <div className="fixed bottom-0 left-0 w-full bg-gradient-to-t from-[#0B0F19] via-[#0B0F19] to-transparent pt-12 pb-6 px-5 z-50 pointer-events-none flex justify-center">
-                            <div className="w-full max-w-xl pointer-events-auto">
-                                <a 
-                                    href="https://booking.allbaro.workers.dev/"
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="w-full relative overflow-hidden group bg-emerald-500 hover:bg-emerald-400 text-slate-900 font-bold text-lg py-4 rounded-2xl shadow-[0_0_20px_rgba(16,185,129,0.4)] transition-all duration-300 transform hover:-translate-y-1 active:translate-y-0 flex items-center justify-center gap-2"
-                                    style={{ textDecoration: 'none' }}
-                                >
-                                    <span className="relative z-10">더 늦기 전에 상담 시작하기</span>
-                                    <Icon name="chevron-right" className="w-5 h-5 relative z-10 group-hover:translate-x-1 transition-transform" />
-                                    <div className="absolute top-0 -left-full w-full h-full bg-gradient-to-r from-transparent via-white/40 to-transparent skew-x-12 group-hover:animate-[shine_1s_ease-in-out]"></div>
-                                </a>
-                            </div>
+                    <h3 class="text-slate-300 font-medium mb-6">지금 당장 시작했을 때 은퇴 자산</h3>
+                    <div class="text-4xl md:text-5xl font-black text-white tracking-tight mb-2 flex items-baseline gap-1">
+                        <span id="out-now-fv">0</span>
+                        <span class="text-2xl text-emerald-400">원</span>
+                    </div>
+                    <div class="flex items-center gap-3 mt-6 pt-5 border-t border-white/10">
+                        <div class="flex-1">
+                            <p class="text-xs text-slate-400 mb-1">총 납입 원금</p>
+                            <p class="text-sm font-semibold text-slate-200" id="out-now-principal">0원</p>
                         </div>
-                        
+                        <div class="w-px h-8 bg-white/10"></div>
+                        <div class="flex-1">
+                            <p class="text-xs text-slate-400 mb-1">복리 이자 수익</p>
+                            <p class="text-sm font-semibold text-emerald-400" id="out-now-interest">+0원</p>
+                        </div>
                     </div>
                 </div>
-            );
+            </div>
+
+            <!-- 바 차트 섹션 -->
+            <div class="space-y-5 fade-in" style="transition-delay: 200ms;">
+                <h3 class="text-lg font-bold text-white flex items-center">
+                    <i data-lucide="alert-triangle" class="w-5 h-5 mr-2 text-orange-400"></i>
+                    시작 시기에 따른 자산 격차
+                </h3>
+
+                <!-- 즉시 시작 -->
+                <div class="group relative">
+                    <div class="flex justify-between text-sm mb-2">
+                        <span class="font-semibold text-emerald-400">지금 즉시 시작</span>
+                        <span class="font-bold text-white" id="out-now-short-fv">0</span>
+                    </div>
+                    <div class="h-3 w-full bg-slate-800 rounded-full overflow-hidden shadow-inner">
+                        <div id="bar-now-fv" class="h-full bg-gradient-to-r from-emerald-600 to-emerald-400 rounded-full transition-all duration-1000 ease-out w-0"></div>
+                    </div>
+                </div>
+
+                <!-- 5년 늦게 -->
+                <div class="group relative">
+                    <div class="flex justify-between text-sm mb-2">
+                        <span class="font-medium text-orange-400">5년 늦게 시작</span>
+                        <span class="font-bold text-slate-300" id="out-late5-short-fv">0</span>
+                    </div>
+                    <div class="h-3 w-full bg-slate-800 rounded-full flex overflow-visible shadow-inner relative">
+                        <div id="bar-late5-fv" class="h-full bg-gradient-to-r from-orange-600 to-orange-400 rounded-full transition-all duration-1000 ease-out z-10 w-0"></div>
+                        <div id="bar-late5-loss" class="absolute top-0 right-0 h-full bg-red-500/20 border border-dashed border-red-500/50 rounded-r-full transition-all duration-1000 ease-out w-0"></div>
+                    </div>
+                    <p class="text-xs text-red-400 text-right mt-1.5 font-medium flex items-center justify-end">
+                        <i data-lucide="zap" class="w-3 h-3 mr-0.5"></i> -<span id="out-late5-loss">0원</span> 증발
+                    </p>
+                </div>
+
+                <!-- 10년 늦게 -->
+                <div class="group relative">
+                    <div class="flex justify-between text-sm mb-2">
+                        <span class="font-medium text-red-400">10년 늦게 시작</span>
+                        <span class="font-bold text-slate-300" id="out-late10-short-fv">0</span>
+                    </div>
+                    <div class="h-3 w-full bg-slate-800 rounded-full flex overflow-visible shadow-inner relative">
+                        <div id="bar-late10-fv" class="h-full bg-gradient-to-r from-red-700 to-red-500 rounded-full transition-all duration-1000 ease-out z-10 w-0"></div>
+                        <div id="bar-late10-loss" class="absolute top-0 right-0 h-full bg-red-500/10 border border-dashed border-red-500/30 rounded-r-full transition-all duration-1000 ease-out w-0"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 컨트롤 패널 -->
+            <div class="mt-8 bg-[#131B2C] rounded-3xl p-6 border border-white/5 fade-in" style="transition-delay: 300ms;">
+                <h3 class="text-white font-bold mb-6">시뮬레이션 조건 설정</h3>
+                
+                <!-- 월 투자 금액 -->
+                <div class="mb-6">
+                    <div class="flex justify-between items-end mb-3">
+                        <div class="flex items-center text-slate-400 text-sm font-medium">
+                            <i data-lucide="wallet" class="w-4 h-4 mr-1.5"></i> 월 투자 금액
+                        </div>
+                        <div class="text-xl font-bold text-emerald-400"><span id="val-monthly">150</span>만 원</div>
+                    </div>
+                    <input type="range" id="input-monthly" min="10" max="1000" step="10" value="150">
+                </div>
+                
+                <!-- 연평균 수익률 -->
+                <div class="mb-6">
+                    <div class="flex justify-between items-end mb-3">
+                        <div class="flex items-center text-slate-400 text-sm font-medium">
+                            <i data-lucide="trending-up" class="w-4 h-4 mr-1.5"></i> 연평균 수익률
+                        </div>
+                        <div class="text-xl font-bold text-blue-400"><span id="val-rate">7</span>%</div>
+                    </div>
+                    <input type="range" id="input-rate" min="1" max="20" step="1" value="7">
+                </div>
+                
+                <!-- 현재 나이 -->
+                <div class="mb-6">
+                    <div class="flex justify-between items-end mb-3">
+                        <div class="flex items-center text-slate-400 text-sm font-medium">
+                            <i data-lucide="calendar" class="w-4 h-4 mr-1.5"></i> 현재 나이
+                        </div>
+                        <div class="text-xl font-bold text-purple-400"><span id="val-age">30</span>세</div>
+                    </div>
+                    <input type="range" id="input-age" min="20" max="60" step="1" value="30">
+                </div>
+                
+                <!-- 은퇴 목표 나이 -->
+                <div class="mb-6">
+                    <div class="flex justify-between items-end mb-3">
+                        <div class="flex items-center text-slate-400 text-sm font-medium">
+                            <i data-lucide="clock" class="w-4 h-4 mr-1.5"></i> 은퇴 목표 나이
+                        </div>
+                        <div class="text-xl font-bold text-pink-400"><span id="val-retire">65</span>세</div>
+                    </div>
+                    <input type="range" id="input-retire" min="35" max="90" step="1" value="65">
+                </div>
+            </div>
+
+        </main>
+
+        <!-- 하단 고정 버튼 -->
+        <div class="fixed bottom-0 left-0 w-full bg-gradient-to-t from-[#0B0F19] via-[#0B0F19] to-transparent pt-12 pb-6 px-5 z-50 pointer-events-none flex justify-center">
+            <div class="w-full max-w-xl pointer-events-auto">
+                <a href="https://booking.allbaro.workers.dev/" target="_blank" rel="noopener noreferrer" class="w-full relative overflow-hidden group bg-emerald-500 hover:bg-emerald-400 text-slate-900 font-bold text-lg py-4 rounded-2xl shadow-[0_0_20px_rgba(16,185,129,0.4)] transition-all duration-300 transform hover:-translate-y-1 active:translate-y-0 flex items-center justify-center gap-2" style="text-decoration: none;">
+                    <span class="relative z-10">더 늦기 전에 상담 시작하기</span>
+                    <i data-lucide="chevron-right" class="w-5 h-5 relative z-10 group-hover:translate-x-1 transition-transform"></i>
+                    <div class="absolute top-0 -left-full w-full h-full bg-gradient-to-r from-transparent via-white/40 to-transparent skew-x-12 group-hover:animate-shine"></div>
+                </a>
+            </div>
+        </div>
+        
+    </div>
+
+    <!-- 순수 JavaScript 로직 -->
+    <script>
+        // 1. 초기 렌더링 세팅
+        lucide.createIcons();
+        
+        // 페이드인 애니메이션 실행
+        setTimeout(() => {
+            document.querySelectorAll('.fade-in').forEach(el => el.classList.add('visible'));
+        }, 50);
+
+        // 2. DOM 요소 매핑
+        const inputs = {
+            monthly: document.getElementById('input-monthly'),
+            rate: document.getElementById('input-rate'),
+            age: document.getElementById('input-age'),
+            retire: document.getElementById('input-retire')
+        };
+        const displays = {
+            monthly: document.getElementById('val-monthly'),
+            rate: document.getElementById('val-rate'),
+            age: document.getElementById('val-age'),
+            retire: document.getElementById('val-retire')
+        };
+        
+        const outs = {
+            dailyLoss: document.getElementById('out-daily-loss'),
+            ageText: document.getElementById('out-current-age-text'),
+            retireText: document.getElementById('out-retire-age-text'),
+            nowFv: document.getElementById('out-now-fv'),
+            nowPrincipal: document.getElementById('out-now-principal'),
+            nowInterest: document.getElementById('out-now-interest'),
+            nowShortFv: document.getElementById('out-now-short-fv'),
+            late5ShortFv: document.getElementById('out-late5-short-fv'),
+            late5Loss: document.getElementById('out-late5-loss'),
+            late10ShortFv: document.getElementById('out-late10-short-fv')
         };
 
-        const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<App />);
+        const bars = {
+            nowFv: document.getElementById('bar-now-fv'),
+            late5Fv: document.getElementById('bar-late5-fv'),
+            late5Loss: document.getElementById('bar-late5-loss'),
+            late10Fv: document.getElementById('bar-late10-fv'),
+            late10Loss: document.getElementById('bar-late10-loss')
+        };
+
+        // 3. 포맷팅 및 계산 함수
+        function formatMoney(amountInWon) {
+            if (amountInWon <= 0) return '0원';
+            const uk = Math.floor(amountInWon / 100000000);
+            const man = Math.floor((amountInWon % 100000000) / 10000);
+            if (uk > 0) return man > 0 ? `${uk}억 ${man.toLocaleString()}만 원` : `${uk}억 원`;
+            return `${man.toLocaleString()}만 원`;
+        }
+
+        function formatShortMoney(amountInWon) {
+            if (amountInWon <= 0) return '0원';
+            const uk = Math.floor(amountInWon / 100000000);
+            if (uk > 0) return `${(amountInWon / 100000000).toFixed(1)}억`;
+            return `${Math.floor(amountInWon / 10000).toLocaleString()}만`;
+        }
+
+        function calculateFV(monthlyAmountMan, rate, years) {
+            if (years <= 0) return 0;
+            const p = monthlyAmountMan * 10000;
+            if (rate === 0) return p * 12 * years;
+            const r = rate / 100 / 12;
+            const n = years * 12;
+            return p * ((Math.pow(1 + r, n) - 1) / r) * (1 + r);
+        }
+
+        // 4. 메인 업데이트 로직
+        function updateUI() {
+            let monthly = parseInt(inputs.monthly.value);
+            let rate = parseInt(inputs.rate.value);
+            let age = parseInt(inputs.age.value);
+            let retire = parseInt(inputs.retire.value);
+
+            // 나이 논리 보정
+            if (age >= retire) {
+                retire = age + 5;
+                inputs.retire.value = retire;
+            }
+
+            // 슬라이더 배경색 칠하기
+            const updateSliderBg = (el) => {
+                const percent = ((el.value - el.min) / (el.max - el.min)) * 100;
+                el.style.background = `linear-gradient(to right, rgba(255,255,255,0.3) ${percent}%, #1e293b ${percent}%)`;
+            }
+            Object.values(inputs).forEach(updateSliderBg);
+
+            // 디스플레이 텍스트 업데이트
+            displays.monthly.innerText = monthly.toLocaleString();
+            displays.rate.innerText = rate;
+            displays.age.innerText = age;
+            displays.retire.innerText = retire;
+
+            outs.ageText.innerText = age;
+            outs.retireText.innerText = retire;
+
+            // 데이터 계산
+            const yearsNow = Math.max(0, retire - age);
+            const years5Late = Math.max(0, retire - (age + 5));
+            const years10Late = Math.max(0, retire - (age + 10));
+
+            const fvNow = calculateFV(monthly, rate, yearsNow);
+            const fv5Late = calculateFV(monthly, rate, years5Late);
+            const fv10Late = calculateFV(monthly, rate, years10Late);
+
+            const principalNow = monthly * 10000 * 12 * yearsNow;
+            const loss5Years = fvNow - fv5Late;
+            const loss10Years = fvNow - fv10Late;
+            const dailyLoss = loss5Years / (5 * 365);
+            const maxVal = Math.max(fvNow, 1);
+
+            // 결과 화면 업데이트
+            outs.dailyLoss.innerText = formatMoney(dailyLoss);
+            
+            const fvNowStr = formatMoney(fvNow);
+            outs.nowFv.innerText = fvNowStr.replace('원', ''); // '원'은 하드코딩 되어있음
+            outs.nowPrincipal.innerText = formatMoney(principalNow);
+            outs.nowInterest.innerText = '+' + formatMoney(fvNow - principalNow);
+
+            outs.nowShortFv.innerText = formatShortMoney(fvNow);
+            outs.late5ShortFv.innerText = formatShortMoney(fv5Late);
+            outs.late10ShortFv.innerText = formatShortMoney(fv10Late);
+            outs.late5Loss.innerText = formatMoney(loss5Years);
+
+            // 바 그래프 너비 업데이트
+            bars.nowFv.style.width = `${(fvNow / maxVal) * 100}%`;
+            bars.late5Fv.style.width = `${(fv5Late / maxVal) * 100}%`;
+            bars.late5Loss.style.width = `${(loss5Years / maxVal) * 100}%`;
+            bars.late10Fv.style.width = `${(fv10Late / maxVal) * 100}%`;
+            bars.late10Loss.style.width = `${(loss10Years / maxVal) * 100}%`;
+        }
+
+        // 5. 이벤트 리스너 등록
+        Object.values(inputs).forEach(input => {
+            input.addEventListener('input', updateUI);
+        });
+
+        document.getElementById('btn-reset').addEventListener('click', () => {
+            inputs.monthly.value = 150;
+            inputs.rate.value = 7;
+            inputs.age.value = 30;
+            inputs.retire.value = 65;
+            updateUI();
+        });
+
+        // 최초 실행
+        updateUI();
     </script>
 </body>
 </html>
+
 
 ```
